@@ -77,6 +77,9 @@ func main() {
 	}
 	logger.Info("数据库表结构就绪")
 
+	// 6. 启动时迁移：如果当前表没有游标，从最近的旧表迁移
+	migrateFromPreviousTable(cfg.StoragePrefix, db, logger)
+
 	// 6. Validate media path
 	if cfg.Media.BasePath != "" {
 		if err := os.MkdirAll(cfg.Media.BasePath, 0755); err != nil {
@@ -240,6 +243,68 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 
 	logger.Info("表前缀切换完成",
 		zap.String("new_prefix", newPrefix),
+		zap.Int("cursors_migrated", len(cursors)),
+		zap.Int("media_tasks_migrated", len(pendingTasks)))
+}
+
+// migrateFromPreviousTable 启动时检查当前表是否有游标，
+// 如果没有则从最近的旧 seq_cursors 表迁移游标和未完成的媒体任务。
+func migrateFromPreviousTable(currentPrefix string, db *gorm.DB, logger *zap.Logger) {
+	// 检查当前表是否已有游标
+	var count int64
+	db.Model(&model.CorpSeqCursor{}).Count(&count)
+	if count > 0 {
+		return // 当前表已有数据，无需迁移
+	}
+
+	// 查找所有 corp_*_seq_cursors 表，排除当前表
+	currentTable := "corp_" + currentPrefix + "_seq_cursors"
+	var tables []string
+	db.Raw("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'corp_%_seq_cursors' AND TABLE_NAME != ? ORDER BY TABLE_NAME DESC", currentTable).Scan(&tables)
+
+	if len(tables) == 0 {
+		logger.Info("首次启动，无历史游标表")
+		return
+	}
+
+	// 取最近的一张旧表（按表名倒序，时间最新的排最前）
+	latestOldTable := tables[0]
+	logger.Info("检测到当前表无游标，从旧表迁移",
+		zap.String("source_table", latestOldTable),
+		zap.String("target_table", currentTable))
+
+	// 迁移游标
+	var cursors []model.CorpSeqCursor
+	if err := db.Table(latestOldTable).Find(&cursors).Error; err != nil {
+		logger.Error("读取旧游标表失败", zap.String("table", latestOldTable), zap.Error(err))
+		return
+	}
+	for _, c := range cursors {
+		c.ID = 0
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "corp_name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"last_seq"}),
+		}).Create(&c).Error; err != nil {
+			logger.Error("迁移游标失败", zap.String("corp", c.CorpName), zap.Error(err))
+		}
+	}
+
+	// 迁移未完成的媒体任务
+	oldMediaTable := latestOldTable[:len(latestOldTable)-len("seq_cursors")] + "media_tasks"
+	var pendingTasks []model.MediaTask
+	if err := db.Table(oldMediaTable).Where("status IN (0, 1)").Find(&pendingTasks).Error; err != nil {
+		logger.Warn("读取旧媒体任务表失败（可能不存在）", zap.Error(err))
+	} else {
+		for i := range pendingTasks {
+			pendingTasks[i].ID = 0
+			pendingTasks[i].Status = 0
+		}
+		if len(pendingTasks) > 0 {
+			db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(pendingTasks, 100)
+		}
+	}
+
+	logger.Info("启动迁移完成",
 		zap.Int("cursors_migrated", len(cursors)),
 		zap.Int("media_tasks_migrated", len(pendingTasks)))
 }
