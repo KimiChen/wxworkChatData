@@ -181,9 +181,9 @@ journalctl -u wxworkChatData --since "1 hour ago"  # 最近1小时日志
 {base_path}/{企业名}/{时间前缀}/{消息类型}/{消息ID}.{扩展名}
 
 示例：
-/opt/wxworkChatData/media/fpxinxi/2026-04-11-04/voice/xxxxx.amr
-/opt/wxworkChatData/media/fpxinxi/2026-04-11-04/image/xxxxx.jpg
-/opt/wxworkChatData/media/fpxinxi/2026-04-11-04/emotion/xxxxx.png
+/opt/wxworkChatData/media/corp/2026-04-11-04/voice/xxxxx.amr
+/opt/wxworkChatData/media/corp/2026-04-11-04/image/xxxxx.jpg
+/opt/wxworkChatData/media/corp/2026-04-11-04/emotion/xxxxx.png
 ```
 
 ## 支持的消息类型
