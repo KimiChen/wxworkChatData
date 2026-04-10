@@ -179,11 +179,17 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 
 	// 1. 从旧表读取所有游标
 	var cursors []model.CorpSeqCursor
-	db.Table(oldCursorTable).Find(&cursors)
+	if err := db.Table(oldCursorTable).Find(&cursors).Error; err != nil {
+		logger.Error("读取旧游标表失败", zap.Error(err))
+		return
+	}
 
 	// 2. 从旧表读取未完成的媒体任务 (pending + downloading)
 	var pendingTasks []model.MediaTask
-	db.Table(oldMediaTable).Where("status IN (0, 1)").Find(&pendingTasks)
+	if err := db.Table(oldMediaTable).Where("status IN (0, 1)").Find(&pendingTasks).Error; err != nil {
+		logger.Error("读取旧媒体任务表失败", zap.Error(err))
+		return
+	}
 
 	// 3. 切换前缀（此后所有 TableName() 返回新表名）
 	model.SetTablePrefix(newPrefix)
@@ -196,11 +202,13 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 
 	// 5. 迁移游标到新表
 	for _, c := range cursors {
-		c.ID = 0 // 清除主键，让新表自增
-		db.Clauses(clause.OnConflict{
+		c.ID = 0
+		if err := db.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "corp_name"}},
 			DoUpdates: clause.AssignmentColumns([]string{"last_seq"}),
-		}).Create(&c)
+		}).Create(&c).Error; err != nil {
+			logger.Error("迁移游标失败", zap.String("corp", c.CorpName), zap.Error(err))
+		}
 	}
 
 	// 6. 迁移未完成的媒体任务到新表
@@ -209,7 +217,9 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 		pendingTasks[i].Status = 0 // 重置为 pending
 	}
 	if len(pendingTasks) > 0 {
-		db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(pendingTasks, 100)
+		if err := db.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(pendingTasks, 100).Error; err != nil {
+			logger.Error("迁移媒体任务失败", zap.Error(err))
+		}
 	}
 
 	logger.Info("表前缀切换完成",
