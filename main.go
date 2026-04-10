@@ -173,13 +173,17 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 		zap.String("old_prefix", oldPrefix),
 		zap.String("new_prefix", newPrefix))
 
+	// 旧表显式表名（切换前缀后仍可通过显式表名访问）
+	oldCursorTable := "corp_" + oldPrefix + "_seq_cursors"
+	oldMediaTable := "corp_" + oldPrefix + "_media_tasks"
+
 	// 1. 从旧表读取所有游标
 	var cursors []model.CorpSeqCursor
-	db.Find(&cursors)
+	db.Table(oldCursorTable).Find(&cursors)
 
 	// 2. 从旧表读取未完成的媒体任务 (pending + downloading)
 	var pendingTasks []model.MediaTask
-	db.Where("status IN (0, 1)").Find(&pendingTasks)
+	db.Table(oldMediaTable).Where("status IN (0, 1)").Find(&pendingTasks)
 
 	// 3. 切换前缀（此后所有 TableName() 返回新表名）
 	model.SetTablePrefix(newPrefix)
