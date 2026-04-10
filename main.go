@@ -197,10 +197,26 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 	// 4. 创建新表
 	if err := model.AutoMigrate(db); err != nil {
 		logger.Error("切表后建表失败", zap.Error(err))
+		// 回滚前缀，避免 Worker 写入不存在的表
+		model.SetTablePrefix(oldPrefix)
 		return
 	}
 
-	// 5. 迁移游标到新表
+	// 5. 再从旧表读取一次游标（Worker 可能在步骤 1-3 之间更新了 seq）
+	var latestCursors []model.CorpSeqCursor
+	if err := db.Table(oldCursorTable).Find(&latestCursors).Error; err == nil {
+		cursorMap := make(map[string]uint64)
+		for _, c := range latestCursors {
+			cursorMap[c.CorpName] = c.LastSeq
+		}
+		for i := range cursors {
+			if latest, ok := cursorMap[cursors[i].CorpName]; ok && latest > cursors[i].LastSeq {
+				cursors[i].LastSeq = latest
+			}
+		}
+	}
+
+	// 6. 迁移游标到新表
 	for _, c := range cursors {
 		c.ID = 0
 		if err := db.Clauses(clause.OnConflict{
@@ -211,7 +227,7 @@ func rotateTables(oldPrefix, newPrefix string, db *gorm.DB, logger *zap.Logger) 
 		}
 	}
 
-	// 6. 迁移未完成的媒体任务到新表
+	// 7. 迁移未完成的媒体任务到新表
 	for i := range pendingTasks {
 		pendingTasks[i].ID = 0
 		pendingTasks[i].Status = 0 // 重置为 pending
