@@ -1,0 +1,26 @@
+# 编译产物
+wxworkChatData
+diagnose
+
+# 运行时配置（含敏感凭据）
+config.yaml
+
+# 媒体文件存储目录
+media/
+
+# 原始 SDK 压缩包（已集成到 WeWorkFinanceSDK/lib/）
+sdk_x86_v3_20250205/
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

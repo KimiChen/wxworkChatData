@@ -1,0 +1,50 @@
+# 企业微信会话存档服务配置
+
+# MySQL 数据库配置
+mysql:
+  dsn: "user:password@tcp(127.0.0.1:3306)/wework_archive?charset=utf8mb4&parseTime=True&loc=Local"
+  max_open_conns: 20
+  max_idle_conns: 5
+
+# 媒体文件存储配置
+media:
+  base_path: "./media"          # 媒体文件本地存储根目录
+
+# 代理配置（企业微信会话存档有IP白名单限制，测试时需要使用代理）
+proxy:
+  url: "http://127.0.0.1:10808"
+  password: ""                   # 代理认证密码，格式: user:pass，通常为空
+
+# 存储时间格式（程序启动时按当前时间生成前缀，用于数据库表名和媒体文件目录）
+# 使用 YYYY/MM/DD/hh/mm/ss 占位符，程序启动时替换为实际时间
+# 示例（假设启动时间为 2026-04-11 15:30:00）:
+#   YYYY-MM-DD-hh    → 2026-04-11-15  → 表名: corp_2026-04-11-15_messages
+#   YYYY-MM-DD       → 2026-04-11     → 表名: corp_2026-04-11_messages
+#   YYYY-MM-DD-hh-mm → 2026-04-11-15-30
+storage_filewords: "YYYY-MM-DD-hh"
+
+# 日志配置
+log:
+  level: "info"                  # debug, info, warn, error
+  file: ""                       # 日志文件路径，留空则输出到 stdout
+
+# 企业微信配置（支持多个企业）
+corps:
+  - name: "my_corp"                          # 企业标识名（用于区分多个企业）
+    corp_id: "wwd08c8exxxx5ab44d"            # 企业ID，在企业微信管理端-我的企业-企业信息查看
+    corp_secret: "xxxxxxxxxxxxxxxxxxxx"       # 会话存档Secret，在管理端-管理工具-会话内容存档查看
+    rsa_private_key: |                        # RSA私钥（与管理端配置的公钥对应）
+      -----BEGIN RSA PRIVATE KEY-----
+      MIIEpAIBAAKCAQEA...
+      -----END RSA PRIVATE KEY-----
+    # 也可以指定私钥文件路径（与 rsa_private_key 二选一）
+    # rsa_private_key_file: "/path/to/private_key.pem"
+    poll_interval: 30                         # 轮询间隔（秒）
+    batch_size: 500                           # 每次拉取消息条数（最大1000）
+    sdk_timeout: 10                           # SDK API 超时时间（秒）
+
+  # 可以配置多个企业
+  # - name: "another_corp"
+  #   corp_id: "wwxxxxxxxxxx"
+  #   corp_secret: "xxxxxxxxxxxxxxxxxxxx"
+  #   rsa_private_key_file: "/path/to/another_key.pem"
