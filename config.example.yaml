@@ -15,13 +15,15 @@ proxy:
   url: "http://127.0.0.1:10808"
   password: ""                   # 代理认证密码，格式: user:pass，通常为空
 
-# 存储时间格式（程序启动时按当前时间生成前缀，用于数据库表名和媒体文件目录）
-# 使用 YYYY/MM/DD/hh/mm/ss 占位符，程序启动时替换为实际时间
-# 示例（假设启动时间为 2026-04-11 15:30:00）:
-#   YYYY-MM-DD-hh    → 2026-04-11-15  → 表名: corp_2026-04-11-15_messages
-#   YYYY-MM-DD       → 2026-04-11     → 表名: corp_2026-04-11_messages
-#   YYYY-MM-DD-hh-mm → 2026-04-11-15-30
-storage_filewords: "YYYY-MM-DD-hh"
+# 存储时间格式（使用 YYYY/MM/DD/hh/mm/ss 占位符，程序启动时替换为实际时间）
+# storage_database: 数据库表名前缀的时间格式
+#   示例: YYYY-MM-DD → 表名 corp_2026-04-11_messages（按天分表）
+# storage_file: 媒体文件目录的时间格式
+#   示例: YYYY-MM-DD-hh → 目录 media/corp/2026-04-11-15/image/（按小时分目录）
+# storage_filewords: 兼容旧配置，当 storage_database/storage_file 未设置时作为回退
+# storage_filewords: "YYYY-MM-DD-hh"
+storage_database: "YYYY-MM-DD"
+storage_file: "YYYY-MM-DD-hh"
 
 # 日志配置
 log:

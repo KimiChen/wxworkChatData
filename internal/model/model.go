@@ -9,26 +9,41 @@ import (
 )
 
 var (
-	storagePrefix string
-	tablePrefix   = "corp_"
-	prefixMu      sync.RWMutex
+	dbPrefix    string
+	filePrefix  string
+	tablePrefix = "corp_"
+	prefixMu    sync.RWMutex
 )
 
-// SetTablePrefix 设置表名前缀（并发安全）
+// SetTablePrefix 设置数据库表名前缀（并发安全）
 func SetTablePrefix(prefix string) {
 	prefixMu.Lock()
 	defer prefixMu.Unlock()
-	storagePrefix = prefix
+	dbPrefix = prefix
 	if prefix != "" {
 		tablePrefix = "corp_" + prefix + "_"
 	}
 }
 
-// GetStoragePrefix 获取当前存储前缀（并发安全）
-func GetStoragePrefix() string {
+// GetDBPrefix 获取当前数据库表名前缀（并发安全）
+func GetDBPrefix() string {
 	prefixMu.RLock()
 	defer prefixMu.RUnlock()
-	return storagePrefix
+	return dbPrefix
+}
+
+// SetFilePrefix 设置媒体文件目录前缀（并发安全）
+func SetFilePrefix(prefix string) {
+	prefixMu.Lock()
+	defer prefixMu.Unlock()
+	filePrefix = prefix
+}
+
+// GetFilePrefix 获取当前媒体文件目录前缀（并发安全）
+func GetFilePrefix() string {
+	prefixMu.RLock()
+	defer prefixMu.RUnlock()
+	return filePrefix
 }
 
 func getTablePrefix() string {

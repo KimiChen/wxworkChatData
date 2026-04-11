@@ -47,15 +47,27 @@ func TestSetTablePrefix_TableNames(t *testing.T) {
 	}
 }
 
-func TestGetStoragePrefix(t *testing.T) {
+func TestGetDBPrefix(t *testing.T) {
 	SetTablePrefix("2026-04-11-15")
-	if got := GetStoragePrefix(); got != "2026-04-11-15" {
-		t.Errorf("GetStoragePrefix() = %q, want %q", got, "2026-04-11-15")
+	if got := GetDBPrefix(); got != "2026-04-11-15" {
+		t.Errorf("GetDBPrefix() = %q, want %q", got, "2026-04-11-15")
 	}
 
 	SetTablePrefix("2026-04-11-16")
-	if got := GetStoragePrefix(); got != "2026-04-11-16" {
-		t.Errorf("GetStoragePrefix() = %q, want %q", got, "2026-04-11-16")
+	if got := GetDBPrefix(); got != "2026-04-11-16" {
+		t.Errorf("GetDBPrefix() = %q, want %q", got, "2026-04-11-16")
+	}
+}
+
+func TestGetFilePrefix(t *testing.T) {
+	SetFilePrefix("2026-04-11-15")
+	if got := GetFilePrefix(); got != "2026-04-11-15" {
+		t.Errorf("GetFilePrefix() = %q, want %q", got, "2026-04-11-15")
+	}
+
+	SetFilePrefix("2026-04-11-16")
+	if got := GetFilePrefix(); got != "2026-04-11-16" {
+		t.Errorf("GetFilePrefix() = %q, want %q", got, "2026-04-11-16")
 	}
 }
 
@@ -64,7 +76,7 @@ func TestTablePrefix_Concurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	prefixes := []string{"2026-01", "2026-02", "2026-03", "2026-04"}
 
-	// 并发写
+	// 并发写 DB 前缀
 	for _, p := range prefixes {
 		wg.Add(1)
 		go func(prefix string) {
@@ -75,13 +87,25 @@ func TestTablePrefix_Concurrent(t *testing.T) {
 		}(p)
 	}
 
+	// 并发写 File 前缀
+	for _, p := range prefixes {
+		wg.Add(1)
+		go func(prefix string) {
+			defer wg.Done()
+			for i := 0; i < 1000; i++ {
+				SetFilePrefix(prefix + "-15")
+			}
+		}(p)
+	}
+
 	// 并发读
 	for i := 0; i < 4; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for i := 0; i < 1000; i++ {
-				_ = GetStoragePrefix()
+				_ = GetDBPrefix()
+				_ = GetFilePrefix()
 				_ = (Message{}).TableName()
 				_ = (CorpSeqCursor{}).TableName()
 				_ = (MediaTask{}).TableName()
@@ -92,7 +116,7 @@ func TestTablePrefix_Concurrent(t *testing.T) {
 	wg.Wait()
 
 	// 验证最终状态一致：前缀和表名应该匹配
-	prefix := GetStoragePrefix()
+	prefix := GetDBPrefix()
 	expected := "corp_" + prefix + "_messages"
 	if got := (Message{}).TableName(); got != expected {
 		t.Errorf("最终状态不一致: TableName()=%q, 期望前缀=%q", got, prefix)

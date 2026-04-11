@@ -14,8 +14,11 @@ type Config struct {
 	Media            MediaConfig  `yaml:"media"`
 	Proxy            ProxyConfig  `yaml:"proxy"`
 	Log              LogConfig    `yaml:"log"`
-	StorageFilewords string       `yaml:"storage_filewords"` // 时间格式，如 YYYY-MM-DD-hh，程序启动时按当前时间生成前缀
-	StoragePrefix    string       `yaml:"-"`                 // 由 StorageFilewords 生成的实际时间前缀，如 2026-04-11-03
+	StorageFilewords string       `yaml:"storage_filewords"` // 兼容旧配置，当 storage_database/storage_file 未设置时作为回退
+	StorageDatabase  string       `yaml:"storage_database"`  // 数据库表名前缀的时间格式，如 YYYY-MM-DD
+	StorageFile      string       `yaml:"storage_file"`      // 媒体文件目录的时间格式，如 YYYY-MM-DD-hh
+	DBPrefix         string       `yaml:"-"`                 // 由 StorageDatabase 生成的数据库表名前缀
+	FilePrefix       string       `yaml:"-"`                 // 由 StorageFile 生成的媒体文件目录前缀
 	Corps            []CorpConfig `yaml:"corps"`
 }
 
@@ -117,11 +120,21 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 
-	// Validate and generate storage prefix
-	if cfg.StorageFilewords == "" {
-		return nil, fmt.Errorf("storage_filewords is required (e.g. YYYY-MM-DD-hh)")
+	// 兼容旧配置：storage_database / storage_file 未设置时回退到 storage_filewords
+	if cfg.StorageDatabase == "" {
+		cfg.StorageDatabase = cfg.StorageFilewords
 	}
-	cfg.StoragePrefix = FormatStoragePrefix(cfg.StorageFilewords)
+	if cfg.StorageFile == "" {
+		cfg.StorageFile = cfg.StorageFilewords
+	}
+	if cfg.StorageDatabase == "" {
+		return nil, fmt.Errorf("storage_database is required (e.g. YYYY-MM-DD)")
+	}
+	if cfg.StorageFile == "" {
+		return nil, fmt.Errorf("storage_file is required (e.g. YYYY-MM-DD-hh)")
+	}
+	cfg.DBPrefix = FormatStoragePrefix(cfg.StorageDatabase)
+	cfg.FilePrefix = FormatStoragePrefix(cfg.StorageFile)
 
 	// Apply MySQL defaults
 	if cfg.MySQL.MaxOpenConns <= 0 {

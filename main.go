@@ -41,13 +41,16 @@ func main() {
 	}
 	defer logger.Sync()
 
-	// 3. Set initial table prefix
-	model.SetTablePrefix(cfg.StoragePrefix)
+	// 3. Set initial prefixes
+	model.SetTablePrefix(cfg.DBPrefix)
+	model.SetFilePrefix(cfg.FilePrefix)
 
 	logger.Info("企业微信会话存档服务启动中",
 		zap.Int("corp_count", len(cfg.Corps)),
-		zap.String("storage_filewords", cfg.StorageFilewords),
-		zap.String("storage_prefix", cfg.StoragePrefix),
+		zap.String("storage_database", cfg.StorageDatabase),
+		zap.String("storage_file", cfg.StorageFile),
+		zap.String("db_prefix", cfg.DBPrefix),
+		zap.String("file_prefix", cfg.FilePrefix),
 		zap.String("proxy", cfg.Proxy.URL))
 
 	// 4. Init MySQL
@@ -78,7 +81,7 @@ func main() {
 	logger.Info("数据库表结构就绪")
 
 	// 6. 启动时迁移：如果当前表没有游标，从最近的旧表迁移
-	migrateFromPreviousTable(cfg.StoragePrefix, db, logger)
+	migrateFromPreviousTable(cfg.DBPrefix, db, logger)
 
 	// 6. Validate media path
 	if cfg.Media.BasePath != "" {
@@ -95,11 +98,11 @@ func main() {
 
 	var wg sync.WaitGroup
 
-	// 8. Start table prefix rotation goroutine
+	// 8. Start prefix rotation goroutine
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		runPrefixRotation(ctx, cfg.StorageFilewords, db, logger)
+		runPrefixRotation(ctx, cfg.StorageDatabase, cfg.StorageFile, db, logger)
 	}()
 
 	// 9. Start workers for each corp
@@ -150,8 +153,8 @@ func main() {
 	logger.Info("服务已退出")
 }
 
-// runPrefixRotation 定期检查时间变化，自动切换表前缀
-func runPrefixRotation(ctx context.Context, format string, db *gorm.DB, logger *zap.Logger) {
+// runPrefixRotation 定期检查时间变化，自动切换数据库表前缀和文件目录前缀
+func runPrefixRotation(ctx context.Context, dbFormat, fileFormat string, db *gorm.DB, logger *zap.Logger) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -160,12 +163,22 @@ func runPrefixRotation(ctx context.Context, format string, db *gorm.DB, logger *
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			newPrefix := config.FormatStoragePrefix(format)
-			currentPrefix := model.GetStoragePrefix()
-			if newPrefix == currentPrefix {
-				continue
+			// 检查数据库表前缀是否需要切换
+			newDBPrefix := config.FormatStoragePrefix(dbFormat)
+			currentDBPrefix := model.GetDBPrefix()
+			if newDBPrefix != currentDBPrefix {
+				rotateTables(currentDBPrefix, newDBPrefix, db, logger)
 			}
-			rotateTables(currentPrefix, newPrefix, db, logger)
+
+			// 检查文件目录前缀是否需要切换
+			newFilePrefix := config.FormatStoragePrefix(fileFormat)
+			currentFilePrefix := model.GetFilePrefix()
+			if newFilePrefix != currentFilePrefix {
+				model.SetFilePrefix(newFilePrefix)
+				logger.Info("文件目录前缀已切换",
+					zap.String("old_file_prefix", currentFilePrefix),
+					zap.String("new_file_prefix", newFilePrefix))
+			}
 		}
 	}
 }

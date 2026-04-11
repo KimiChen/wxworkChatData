@@ -2,11 +2,11 @@
 -- 使用前请先创建数据库:
 -- CREATE DATABASE IF NOT EXISTS wework_archive CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 --
--- 注意：实际表名由 storage_filewords 配置决定，格式为 corp_{filewords}_xxx
--- 例如 storage_filewords: "YYYY-MM-DD-hh" 时，表名为：
---   corp_2026-04-11-03_messages
---   corp_2026-04-11-03_seq_cursors
---   corp_2026-04-11-03_media_tasks
+-- 注意：实际表名由 storage_database 配置决定，格式为 corp_{时间前缀}_xxx
+-- 例如 storage_database: "YYYY-MM-DD" 时，表名为：
+--   corp_2026-04-11_messages
+--   corp_2026-04-11_seq_cursors
+--   corp_2026-04-11_media_tasks
 
 -- 消息表：存储所有类型的解密后消息（示例使用 corp_ 前缀）
 CREATE TABLE IF NOT EXISTS `corp_messages` (
