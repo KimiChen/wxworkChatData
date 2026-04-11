@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -22,8 +23,16 @@ import (
 	"wxworkChatData/internal/worker"
 )
 
+func defaultConfigPath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "config.yaml"
+	}
+	return filepath.Join(filepath.Dir(exe), "config.yaml")
+}
+
 func main() {
-	configPath := flag.String("config", "config.yaml", "配置文件路径")
+	configPath := flag.String("config", defaultConfigPath(), "配置文件路径")
 	flag.Parse()
 
 	// 1. Load config

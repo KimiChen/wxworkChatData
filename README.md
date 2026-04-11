@@ -42,10 +42,11 @@
 ## 编译
 
 ```bash
-# 设置动态库路径
-export LD_LIBRARY_PATH=$(pwd)/WeWorkFinanceSDK/lib:$LD_LIBRARY_PATH
+# 下载本项目
+git clone git@github.com:KimiChen/wxworkChatData.git
+cd wxworkChatData
 
-# 编译主程序
+# 编译主程序（已内嵌 rpath，运行时无需设置 LD_LIBRARY_PATH）
 CGO_ENABLED=1 go build -o wxworkChatData .
 
 # 编译诊断工具（可选）
@@ -89,8 +90,8 @@ cp config.example.yaml config.yaml
 
 | 配置值 | 启动时间 2026-04-11 15:30 | 目录示例 | 切换频率 |
 |--------|--------------------------|---------|---------|
-| `YYYY-MM-DD-hh` | `2026-04-11-15` | `media/corp/2026-04-11-15/image/` | 每小时 |
-| `YYYY-MM-DD` | `2026-04-11` | `media/corp/2026-04-11/image/` | 每天 |
+| `YYYY-MM-DD-hh` | `2026-04-11-15` | `media/corp/2026-04-11-15/` | 每小时 |
+| `YYYY-MM-DD` | `2026-04-11` | `media/corp/2026-04-11/` | 每天 |
 
 ## 部署
 
@@ -121,9 +122,10 @@ scp WeWorkFinanceSDK/lib/libWeWorkFinanceSdk_C.so server:/opt/wxworkChatData/lib
 
 ### 3. 手动运行测试
 
+二进制已内嵌 rpath（`$ORIGIN/lib`），`-config` 默认为二进制同目录下的 `config.yaml`，直接运行即可：
+
 ```bash
-export LD_LIBRARY_PATH=/opt/wxworkChatData/lib:$LD_LIBRARY_PATH
-/opt/wxworkChatData/wxworkChatData -config /opt/wxworkChatData/config.yaml
+/opt/wxworkChatData/wxworkChatData
 ```
 
 ### 4. 诊断工具
@@ -131,8 +133,7 @@ export LD_LIBRARY_PATH=/opt/wxworkChatData/lib:$LD_LIBRARY_PATH
 用于快速验证 SDK 连接和消息拉取，不写数据库：
 
 ```bash
-export LD_LIBRARY_PATH=/opt/wxworkChatData/lib:$LD_LIBRARY_PATH
-/opt/wxworkChatData/diagnose -config /opt/wxworkChatData/config.yaml
+/opt/wxworkChatData/diagnose
 ```
 
 ### 5. 配置 systemd 服务
@@ -147,8 +148,7 @@ After=network.target mysqld.service
 [Service]
 Type=simple
 WorkingDirectory=/opt/wxworkChatData
-Environment=LD_LIBRARY_PATH=/opt/wxworkChatData/lib
-ExecStart=/opt/wxworkChatData/wxworkChatData -config /opt/wxworkChatData/config.yaml
+ExecStart=/opt/wxworkChatData/wxworkChatData
 Restart=on-failure
 RestartSec=10
 LimitNOFILE=65535
@@ -182,17 +182,17 @@ journalctl -u wxworkChatData --since "1 hour ago"  # 最近1小时日志
 | `corp_2026-04-11_seq_cursors` | 每个企业的拉取进度（seq 游标） |
 | `corp_2026-04-11_media_tasks` | 媒体文件下载队列，status: 0=待下载 1=下载中 2=完成 3=失败 |
 
-到达 05:00 时自动创建 `corp_2026-04-11-05_*` 新表，游标和未完成的媒体任务自动迁移。
+到达次日时自动创建 `corp_2026-04-12_*` 新表，游标和未完成的媒体任务自动迁移。
 
 ## 媒体文件存储结构
 
 ```
-{base_path}/{企业名}/{时间前缀}/{消息类型}/{消息ID}.{扩展名}
+{base_path}/{企业名}/{时间前缀}/{消息ID}.{扩展名}
 
 示例：
-/opt/wxworkChatData/media/corp/2026-04-11-04/voice/xxxxx.amr
-/opt/wxworkChatData/media/corp/2026-04-11-04/image/xxxxx.jpg
-/opt/wxworkChatData/media/corp/2026-04-11-04/emotion/xxxxx.png
+/opt/wxworkChatData/media/fpxinxi/2026-04-11-15/xxxxx.amr
+/opt/wxworkChatData/media/fpxinxi/2026-04-11-15/xxxxx.jpg
+/opt/wxworkChatData/media/fpxinxi/2026-04-11-15/xxxxx.png
 ```
 
 ## 支持的消息类型

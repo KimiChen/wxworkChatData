@@ -3,7 +3,7 @@
 
 package WeWorkFinanceSDK
 
-// #cgo LDFLAGS: -L${SRCDIR}/lib -lWeWorkFinanceSdk_C
+// #cgo LDFLAGS: -L${SRCDIR}/lib -lWeWorkFinanceSdk_C -Wl,-rpath,'$ORIGIN/lib'
 // #cgo CFLAGS: -I ./lib/
 // #include <stdlib.h>
 // #include "WeWorkFinanceSdk_C.h"
