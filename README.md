@@ -188,7 +188,7 @@ journalctl -u wxworkChatData --since "1 hour ago"  # 最近1小时日志
 
 ```
 {base_path}/{企业名}/{时间前缀}/{消息ID}.{扩展名}
-
+```
 
 
 ## 支持的消息类型
